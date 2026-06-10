@@ -383,6 +383,7 @@ let objects = [];               // falling coins / obstacles
 let particles = [];             // sparkles & coin rain
 let floaters = [];              // floating score text
 let spawnAcc = 0;
+let meowthCounts = [0,0,0];   // 나옹 1/2/3 누적 등장 횟수 (매 판 초기화)
 let shieldCharges = 0;
 let shake = 0;
 let flashWhite = 0;
@@ -402,7 +403,7 @@ function diffCfg(t){
   return {
     spawnEvery: Math.max(0.27, 0.80 - t*0.015),    // spawns get faster over time
     fall:       150 + t*9,                           // coins/obstacles fall faster
-    obstacleP:  Math.min(0.50, 0.09 + t*0.0065)      // more obstacles over time
+    obstacleP:  Math.min(0.55, 0.20 + t*0.007)        // 나옹 등장 빈도 (처음부터 자주)
   };
 }
 
@@ -478,6 +479,7 @@ function startRound(){
   elapsed=0;
   objects=[]; particles=[]; floaters=[];
   spawnAcc=0; shake=0; flashWhite=0;
+  meowthCounts=[0,0,0];                 // 매 판 누적 초기화
   player.x=W/2; player.stun=0;
   shieldCharges = save.shieldLevel;     // shield recharges every run
   runStartTotal = save.total;
@@ -555,14 +557,24 @@ function upRow(o){
 /* =========================================================================
    SPAWNING / GAMEPLAY
    ========================================================================= */
+/* 나옹 선택: 셋 중 하나를 랜덤으로 제외 → 남은 둘 중 덜 나온 쪽(동률이면 번호 작은 쪽) */
+function pickMeowth(){
+  const drop = Math.floor(Math.random()*3);          // 제외할 하나
+  const cands = [0,1,2].filter(i=>i!==drop);          // 남은 둘 (오름차순)
+  let pick = cands[0];
+  if(meowthCounts[cands[1]] < meowthCounts[pick]) pick = cands[1];  // 더 적게 나온 쪽
+  meowthCounts[pick]++;
+  return pick+1;                                       // 1-based
+}
+
 function spawnObject(){
   const cfg=diffCfg(elapsed);
   const isObstacle = Math.random() < cfg.obstacleP;
-  // 장애물은 전부 나옹(meowth 1/2/3 랜덤) — 코인 도둑. 폭탄 없음.
+  // 장애물은 전부 나옹(meowth 1/2/3) — 코인 도둑. 폭탄 없음.
   const size = isObstacle ? 50 : 30;
   objects.push({
     type: isObstacle ? 'meowth' : 'coin',
-    mv:   isObstacle ? (1+Math.floor(Math.random()*3)) : 0,   // which Meowth sprite
+    mv:   isObstacle ? pickMeowth() : 0,   // which Meowth sprite (balanced)
     x: 30 + Math.random()*(W-60),
     y: -size,
     vy: cfg.fall*(0.85+Math.random()*0.4),
