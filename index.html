@@ -132,6 +132,7 @@
   }
   .up-icon{ font-size:22px; width:34px; text-align:center; }
   .up-icon-img{ width:34px; height:34px; object-fit:contain; image-rendering:pixelated; flex:0 0 auto; }
+  .btn-coin{ width:18px; height:18px; object-fit:contain; image-rendering:pixelated; vertical-align:middle; margin-left:4px; }
   .up-info{ flex:1; }
   .up-name{ font-size:13px; font-weight:700; color:#fff; line-height:1.55; }
   .up-desc{ font-family:'Galmuri11',monospace; font-size:14px; font-weight:700; color:#a99fe0; margin-top:5px; }
@@ -220,7 +221,7 @@
       <div class="date" id="ltDate"></div>
       <p id="ltBody"></p>
       <div class="from" id="ltFrom"></div>
-      <div class="heart">💛 🪙 💛</div>
+      <div class="heart">💛 💛 💛</div>
     </div>
     <button class="btn ghost small" id="replayBtn">다시 보기</button>
   </div>
@@ -484,10 +485,10 @@ const elLetter=document.getElementById('letter');
 
 function showOverlay(el){ [elTitle,elShop,elLetter].forEach(o=>o.classList.remove('show')); if(el) el.classList.add('show'); }
 
-// opening BGM: 자동재생이 막혀 있어 첫 상호작용 때 잔잔하게 재생 (타이틀~게임 내내)
+// opening BGM: 타이틀(시작) 화면에서만 재생. 자동재생이 막혀 첫 상호작용 때 시작.
 let openingStarted=false;
 function startOpening(){
-  if(openingStarted) return;
+  if(state!=='title' || openingStarted) return;   // 타이틀에서만
   audioInit();
   if(AUD.opening){ openingStarted=true; stopBGM(); bgmSrc=playBuf(AUD.opening, true, 0.4); }
 }
@@ -520,6 +521,7 @@ document.getElementById('evolveBtn').onclick = ()=>{
    ========================================================================= */
 function startRound(){
   if(save.total>=999){ startEnding(); return; }   // already at cap → straight to ending
+  stopBGM(); openingStarted=false;   // 게임 중엔 브금 없음 (오프닝 정지)
   state='playing';
   elapsed=0;
   objects=[]; particles=[]; floaters=[];
@@ -591,7 +593,7 @@ function upRow(o){
   btn.className='btn small';
   if(o.maxed){ btn.textContent='MAX'; btn.disabled=true; }
   else{
-    btn.textContent=`${o.cost}🪙`;
+    btn.innerHTML=`${o.cost}<img class="btn-coin" src="${SPRITE_SRC.coin}" alt="코인">`;
     btn.disabled=!o.can;
     btn.onclick=o.buy;
   }
@@ -680,6 +682,7 @@ function goToTitle(){
   objects=[]; particles=[]; floaters=[]; gold=null;
   document.getElementById('evolveBtn').style.display='none';
   showOverlay(elTitle);
+  startOpening();                // AC가 이미 활성화돼 있으면 타이틀 브금 즉시 재생
 }
 
 function startEnding(){
