@@ -469,7 +469,7 @@ function handleClick(cx, cy){
     const dx=cx-W/2, dy=cy-H/2;
     if(Math.hypot(dx,dy) < 95){ collectFinalCoin(); }
   }else if(state==='ending' && endPhase==='reveal'){
-    goRain();   // 진화 완료 화면에서 한 번 클릭하면 바로 골드러시
+    if(evolvedDone) goRain();   // 브금이 끝난 뒤 + 클릭, 두 조건 만족해야 골드러시
   }else if(state==='ending' && endPhase==='done'){
     // 타부자고(서핑) 클릭 영역을 두 번 누르면 처음 화면으로
     const gx = gold ? gold.x : W/2;
@@ -529,9 +529,11 @@ document.getElementById('evolveBtn').onclick = ()=>{
   stopBGM();
   flashWhite=1;
   endPhase='reveal'; endTimer=0;
-  revealMax = (AUD.evolved ? AUD.evolved.duration+2.0 : 6);   // fallback
-  // 진화 완료 브금이 끝나면 1초 뒤에 골드러시로
-  bgmSrc = playBuf(AUD.evolved, false, 0.95, ()=>{ revealMax = endTimer + 1.0; });
+  evolvedDone=false;
+  revealMax = (AUD.evolved ? AUD.evolved.duration+1.0 : 0);   // 안전장치 시간(브금 길이)
+  // 진화 완료 브금이 "끝나야" 클릭으로 골드러시 진행 가능
+  bgmSrc = playBuf(AUD.evolved, false, 0.95, ()=>{ evolvedDone=true; });
+  if(!AUD.evolved) evolvedDone=true;   // 브금이 없으면 바로 클릭 가능
 };
 
 /* =========================================================================
@@ -691,6 +693,7 @@ function sparkle(x,y,color){
    ========================================================================= */
 let gold = null;   // gholdengo surfboard object
 let endClicks = 0; // 엔딩 done 단계에서 타부자고 클릭 횟수
+let evolvedDone = false; // 진화완료 브금이 끝났는지 (끝나야 클릭으로 골드러시 진행)
 
 function goToTitle(){
   stopBGM();
@@ -830,7 +833,7 @@ function updateEnding(dt){
     if(Math.random()<0.4) particles.push(sparkle(W/2+(Math.random()-0.5)*150, H/2+(Math.random()-0.5)*170,'#ffffff'));
   }else if(endPhase==='reveal'){
     if(Math.random()<0.5) particles.push(sparkle(W/2+(Math.random()-0.5)*130, H/2-20+(Math.random()-0.5)*130,'#ffe85c'));
-    if(endTimer>revealMax) goRain();   // evolved 브금이 끝나면 (또는 폴백)
+    if(endTimer>revealMax) evolvedDone=true;   // 안전장치: 브금이 끝난 것으로 간주 (자동 진행 X)
   }else if(endPhase==='rain'){
     if(Math.random()<0.9) spawnRainBurst(2);
     if(gold){ gold.x+=gold.vx*dt; if(gold.x>W/2){ gold.x=W/2; gold.vx*=0.86; } }
@@ -1048,6 +1051,13 @@ function drawEnding(){
     ctx.font="bold "+Math.round(18*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("모으령은", W/2, H/2-168);
     ctx.fillText("타부자고로 진화했다!", W/2, H/2-168+Math.round(30*fscale()));
+    if(evolvedDone){   // 브금이 끝나야 클릭 안내 표시
+      ctx.fillStyle='#fff';
+      ctx.font="bold "+Math.round(14*fscale())+"px 'Galmuri11',monospace";
+      ctx.globalAlpha=0.5+0.5*Math.sin(performance.now()/300);
+      ctx.fillText("클릭하면 계속!", W/2, H/2+170);
+      ctx.globalAlpha=1;
+    }
 
   }else{
     // rain / done : gold wave + surfing gholdengo
