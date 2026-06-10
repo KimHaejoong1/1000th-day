@@ -532,8 +532,8 @@ document.getElementById('evolveBtn').onclick = ()=>{
    FLOW
    ========================================================================= */
 function startRound(){
+  stopBGM(); openingStarted=false; wantOpening=false;   // 게임/엔딩 진입 시 항상 오프닝 정지
   if(save.total>=999){ startEnding(); return; }   // already at cap → straight to ending
-  stopBGM(); openingStarted=false;   // 게임 중엔 브금 없음 (오프닝 정지)
   state='playing';
   elapsed=0;
   objects=[]; particles=[]; floaters=[];
