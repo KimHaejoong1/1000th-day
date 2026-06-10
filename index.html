@@ -72,7 +72,7 @@
 
   .sub{
     font-family:'Galmuri11',monospace;
-    font-size:18px; color:#cfc7ff; line-height:1.95;
+    font-size:19px; font-weight:700; color:#cfc7ff; line-height:2.0;
   }
   .mw-row{ display:inline-flex; gap:12px; justify-content:center; margin:8px 0 4px; }
   .mw-ico{
@@ -85,7 +85,7 @@
 
   .btn{
     font-family:'Press Start 2P',monospace;
-    font-size:13px;
+    font-size:14px;
     color:#1a1208;
     background:linear-gradient(#ffe16b,var(--gold-deep));
     border:none;
@@ -97,7 +97,7 @@
     transition:transform .05s, box-shadow .05s;
   }
   .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #9a6b00; }
-  .btn.small{ font-size:10px; padding:10px 12px; }
+  .btn.small{ font-size:11px; padding:10px 12px; }
   .btn.ghost{
     background:#1b1530; color:#ffe16b;
     box-shadow:0 4px 0 #0c0a1a;
@@ -115,12 +115,12 @@
     box-shadow:0 0 24px rgba(125,60,255,.25), inset 0 0 0 2px #000;
   }
   #shop h2{
-    font-size:16px; color:var(--gold); margin-bottom:6px;
+    font-size:17px; color:var(--gold); margin-bottom:6px;
     text-shadow:2px 2px 0 #5a3b00;
   }
   .shop-coins{
     font-family:'Press Start 2P',monospace;
-    font-size:15px; color:var(--neon); margin:10px 0 16px;
+    font-size:16px; color:var(--neon); margin:10px 0 16px;
   }
   .up-row{
     display:flex; align-items:center; gap:10px;
@@ -131,9 +131,9 @@
   .up-icon{ font-size:22px; width:34px; text-align:center; }
   .up-icon-img{ width:34px; height:34px; object-fit:contain; image-rendering:pixelated; flex:0 0 auto; }
   .up-info{ flex:1; }
-  .up-name{ font-size:11px; color:#fff; line-height:1.55; }
-  .up-desc{ font-family:'Galmuri11',monospace; font-size:13px; color:#a99fe0; margin-top:5px; }
-  .up-lv{ font-family:'Galmuri11',monospace; font-size:13px; color:var(--gold); margin-top:4px; }
+  .up-name{ font-size:13px; font-weight:700; color:#fff; line-height:1.55; }
+  .up-desc{ font-family:'Galmuri11',monospace; font-size:14px; font-weight:700; color:#a99fe0; margin-top:5px; }
+  .up-lv{ font-family:'Galmuri11',monospace; font-size:14px; font-weight:700; color:var(--gold); margin-top:4px; }
 
   /* ---------- Letter ---------- */
   #letter{ background:rgba(5,5,10,.4); }
@@ -446,6 +446,13 @@ function handleClick(cx, cy){
   if(state==='ending' && endPhase==='prompt'){
     const dx=cx-W/2, dy=cy-H/2;
     if(Math.hypot(dx,dy) < 95){ collectFinalCoin(); }
+  }else if(state==='ending' && endPhase==='done'){
+    // 타부자고(서핑) 클릭 영역을 두 번 누르면 처음 화면으로
+    const gx = gold ? gold.x : W/2;
+    if(Math.abs(cx-gx) < 110 && cy > H-280){
+      endClicks++;
+      if(endClicks>=2) goToTitle();
+    }
   }
 }
 cv.addEventListener('click', e=>{ const p=canvasPos(e.clientX,e.clientY); handleClick(p.x,p.y); });
@@ -642,6 +649,17 @@ function sparkle(x,y,color){
    ENDING SEQUENCE
    ========================================================================= */
 let gold = null;   // gholdengo surfboard object
+let endClicks = 0; // 엔딩 done 단계에서 타부자고 클릭 횟수
+
+function goToTitle(){
+  stopBGM();
+  save.total = 998; persist();   // 처음 화면에서 다시 시작하면 마지막 코인부터
+  state='title'; endPhase='';
+  objects=[]; particles=[]; floaters=[]; gold=null;
+  document.getElementById('evolveBtn').style.display='none';
+  showOverlay(elTitle);
+}
+
 function startEnding(){
   state='ending';
   endPhase='reached';     // 먼저 999 달성을 보여주고 멈춤
@@ -771,11 +789,10 @@ function updateEnding(dt){
     if(gold){ gold.x+=gold.vx*dt; if(gold.x>W/2){ gold.x=W/2; gold.vx*=0.86; } }
     if(endTimer>3.6){
       endPhase='done';
-      fillLetter();
-      showOverlay(elLetter);
+      endClicks=0;     // 타부자고 두 번 클릭하면 처음 화면으로
     }
   }else if(endPhase==='done'){
-    if(Math.random()<0.5) spawnRainBurst(1);   // keep gentle rain behind card
+    if(Math.random()<0.5) spawnRainBurst(1);   // keep gentle gold rush going
   }
 }
 
@@ -851,15 +868,11 @@ function drawHUD(){
   ctx.fillRect(0,38,W,2);
 
   ctx.textBaseline='middle';
-  ctx.font="13px 'Press Start 2P','Galmuri11',monospace";
+  ctx.font="bold 15px 'Press Start 2P','Galmuri11',monospace";
   // coins
-  drawCoin(20,19,18,0);
+  drawCoin(22,20,20,0);
   ctx.fillStyle='#ffe85c'; ctx.textAlign='left';
-  ctx.fillText(`${save.total}/999`, 36, 20);
-  // run number
-  ctx.textAlign='center';
-  ctx.fillStyle='#fff';
-  ctx.fillText(`판 ${save.round}`, W/2, 20);
+  ctx.fillText(`${save.total}/999`, 40, 20);
   // shield charges
   ctx.textAlign='right';
   if(shieldCharges>0){
@@ -875,14 +888,14 @@ function drawGameOver(){
   ctx.fillStyle='rgba(10,6,18,0.66)'; ctx.fillRect(0,0,W,H);
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='#ff5a7a';
-  ctx.font="26px 'Press Start 2P','Galmuri11',monospace";
+  ctx.font="bold 28px 'Press Start 2P','Galmuri11',monospace";
   ctx.fillText("아야! 💥", W/2, H/2-30);
   const got=Math.max(0, save.total-runStartTotal);
   ctx.fillStyle='#ffe85c';
-  ctx.font="16px 'Galmuri11',monospace";
+  ctx.font="bold 17px 'Galmuri11',monospace";
   ctx.fillText(`이번 판 +${got} 코인 획득!`, W/2, H/2+18);
   ctx.fillStyle='#cfc7ff';
-  ctx.font="14px 'Galmuri11',monospace";
+  ctx.font="bold 15px 'Galmuri11',monospace";
   ctx.fillText("강화하고 다시 도전하자", W/2, H/2+44);
 }
 
@@ -900,8 +913,8 @@ function drawEnding(){
     drawSilhouette(img, W/2, H/2, evoShow?150:168, '#241a40');
 
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle='#8a5b00';
-    ctx.font="16px 'Press Start 2P','Galmuri11',monospace";
+    ctx.fillStyle='#ffffff';
+    ctx.font="bold 18px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("오잉? 모으령의 상태가..?", W/2, 92);
     return;
   }
@@ -913,13 +926,13 @@ function drawEnding(){
     drawCoin(W/2, H/2-30, 72, performance.now()/300);
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffe85c';
-    ctx.font="24px 'Press Start 2P','Galmuri11',monospace";
+    ctx.font="bold 26px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("999 / 999", W/2, H/2+54);
     ctx.fillStyle='#fff';
-    ctx.font="17px 'Galmuri11',monospace";
+    ctx.font="bold 18px 'Galmuri11',monospace";
     ctx.fillText("999 코인 달성! 🎉", W/2, H/2+92);
     ctx.fillStyle='#cfc7ff';
-    ctx.font="14px 'Galmuri11',monospace";
+    ctx.font="bold 15px 'Galmuri11',monospace";
     ctx.globalAlpha=0.4+0.6*(0.5+0.5*Math.sin(performance.now()/300));
     ctx.fillText("마지막 한 개가 남았어…", W/2, H/2+120);
     ctx.globalAlpha=1;
@@ -935,10 +948,10 @@ function drawEnding(){
 
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffd23f';
-    ctx.font="16px 'Press Start 2P','Galmuri11',monospace";
+    ctx.font="bold 18px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("1000번째 코인을 모으자!", W/2, H/2-165);
     ctx.fillStyle='#fff';
-    ctx.font="13px 'Galmuri11',monospace";
+    ctx.font="bold 14px 'Galmuri11',monospace";
     ctx.globalAlpha=0.4+0.6*(0.5+0.5*Math.sin(performance.now()/300));
     ctx.fillText("👆 코인을 클릭!", W/2, H/2+150);
     ctx.globalAlpha=1;
@@ -948,7 +961,7 @@ function drawEnding(){
     drawGimmighoul(W/2, H/2+bob, 150);
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffd23f';
-    ctx.font="16px 'Press Start 2P','Galmuri11',monospace";
+    ctx.font="bold 18px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("오잉? 모으령의 상태가..?", W/2, H/2-150);
     // (진화하기 버튼은 DOM 으로 표시됨)
 
@@ -957,7 +970,7 @@ function drawEnding(){
     drawGholdengo(W/2, H/2+bob, 150);
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffe85c';
-    ctx.font="16px 'Press Start 2P','Galmuri11',monospace";
+    ctx.font="bold 18px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("모으령은 타부자고로", W/2, H/2-168);
     ctx.fillText("진화했다!", W/2, H/2-138);
 
@@ -965,13 +978,17 @@ function drawEnding(){
     // rain / done : gold wave + surfing gholdengo
     drawGoldWave();
     if(gold) drawGholdengoSurf(gold.x, gold.y);
-    ctx.textAlign='center';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffe85c';
-    ctx.font="16px 'Press Start 2P','Galmuri11',monospace";
+    ctx.font="bold 18px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText("✨ 골드러시! ✨", W/2, 70);
-    ctx.fillStyle='#fff';
-    ctx.font="14px 'Galmuri11',monospace";
-    ctx.fillText("타부자고로 진화했다!", W/2, 96);
+    if(endPhase==='done'){
+      ctx.fillStyle='#fff';
+      ctx.font="bold 15px 'Galmuri11',monospace";
+      ctx.globalAlpha=0.5+0.5*Math.sin(performance.now()/300);
+      ctx.fillText("타부자고를 두 번 클릭!", W/2, 104);
+      ctx.globalAlpha=1;
+    }
   }
 }
 
@@ -997,7 +1014,7 @@ function drawFloaters(){
   for(const f of floaters){
     ctx.globalAlpha=Math.max(0,1-f.t/0.9);
     ctx.fillStyle=f.color;
-    ctx.font="13px 'Press Start 2P','Galmuri11',monospace";
+    ctx.font="bold 14px 'Press Start 2P','Galmuri11',monospace";
     ctx.fillText(f.txt,f.x,f.y);
   }
   ctx.globalAlpha=1;
@@ -1041,7 +1058,7 @@ function drawGiantCoin(cx,cy,r){
     // "1000" overlay
     ctx.fillStyle='#7a4d00';
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font=`${Math.floor(r*0.42)}px 'Press Start 2P',monospace`;
+    ctx.font=`bold ${Math.floor(r*0.42)}px 'Press Start 2P',monospace`;
     ctx.fillText('1000',cx,cy+2);
   }else{
     ctx.fillStyle='#ffd23f'; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
