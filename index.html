@@ -199,8 +199,8 @@
         <img id="mw2" class="mw-ico" alt="나옹" />
         <img id="mw3" class="mw-ico" alt="나옹" />
       </span><br />
-      이 나옹들에게 닿으면 코인을 잃기 전에<br />
-      모으령이 도망가 버려!<br />
+      이 나옹들은 코인을 빼앗기 때문에<br />
+      닿으면 모으령이 도망친다!<br />
       시간이 갈수록 점점 빨라지니 조심!<br /><br />
       999개를 채우면… 무슨 일이?<br />
       ← → 또는 화면을 드래그해 조종!
@@ -468,6 +468,8 @@ function handleClick(cx, cy){
   if(state==='ending' && endPhase==='prompt'){
     const dx=cx-W/2, dy=cy-H/2;
     if(Math.hypot(dx,dy) < 95){ collectFinalCoin(); }
+  }else if(state==='ending' && endPhase==='reveal'){
+    goRain();   // 진화 완료 화면에서 한 번 클릭하면 바로 골드러시
   }else if(state==='ending' && endPhase==='done'){
     // 타부자고(서핑) 클릭 영역을 두 번 누르면 처음 화면으로
     const gx = gold ? gold.x : W/2;
@@ -965,7 +967,8 @@ function drawEnding(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffffff';
     ctx.font="bold "+Math.round(18*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("오잉? 모으령의 상태가..?", W/2, 92);
+    ctx.fillText("오잉?", W/2, 64);
+    ctx.fillText("모으령의 상태가..?", W/2, 64+Math.round(30*fscale()));
     return;
   }
 
@@ -984,7 +987,8 @@ function drawEnding(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffffff';
     ctx.font="bold "+Math.round(18*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("오잉? 모으령의 상태가..?", W/2, 92);
+    ctx.fillText("오잉?", W/2, 64);
+    ctx.fillText("모으령의 상태가..?", W/2, 64+Math.round(30*fscale()));
     return;
   }
 
@@ -992,18 +996,18 @@ function drawEnding(){
 
   if(endPhase==='reached'){
     // 999 달성! 잠깐 멈춤
-    drawCoin(W/2, H/2-30, 72, performance.now()/300);
+    drawCoin(W/2, H/2-92, 72, performance.now()/300);
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffe85c';
     ctx.font="bold "+Math.round(26*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("999 / 999", W/2, H/2+54);
+    ctx.fillText("999 / 999", W/2, H/2+8);
     ctx.fillStyle='#fff';
     ctx.font="bold "+Math.round(18*fscale())+"px 'Galmuri11',monospace";
-    ctx.fillText("999 코인 달성!", W/2, H/2+92);
+    ctx.fillText("999 코인 달성!", W/2, H/2+8+Math.round(46*fscale()));
     ctx.fillStyle='#cfc7ff';
     ctx.font="bold "+Math.round(15*fscale())+"px 'Galmuri11',monospace";
     ctx.globalAlpha=0.4+0.6*(0.5+0.5*Math.sin(performance.now()/300));
-    ctx.fillText("마지막 한 개가 남았어…", W/2, H/2+120);
+    ctx.fillText("마지막 한 개가 남았어…", W/2, H/2+8+Math.round(82*fscale()));
     ctx.globalAlpha=1;
 
   }else if(endPhase==='prompt'){
@@ -1018,7 +1022,8 @@ function drawEnding(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffd23f';
     ctx.font="bold "+Math.round(18*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("1000번째 코인을 모으자!", W/2, H/2-165);
+    ctx.fillText("1000번째", W/2, H/2-165-Math.round(30*fscale()));
+    ctx.fillText("코인을 모으자!", W/2, H/2-165);
     ctx.fillStyle='#fff';
     ctx.font="bold "+Math.round(14*fscale())+"px 'Galmuri11',monospace";
     ctx.globalAlpha=0.4+0.6*(0.5+0.5*Math.sin(performance.now()/300));
@@ -1026,12 +1031,13 @@ function drawEnding(){
     ctx.globalAlpha=1;
 
   }else if(endPhase==='preEvolve'){
-    const bob=Math.sin(performance.now()/300)*6;
-    drawGimmighoul(W/2, H/2+bob, 128);   // 이후 실루엣과 같은 높이(160)
+    // darken/evolving 실루엣과 정확히 같은 위치·크기(높이160). bob 제거로 전환 시 튐 방지
+    drawGimmighoul(W/2, H/2, 128);
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffd23f';
     ctx.font="bold "+Math.round(18*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("오잉? 모으령의 상태가..?", W/2, H/2-150);
+    ctx.fillText("오잉?", W/2, H/2-150-Math.round(30*fscale()));
+    ctx.fillText("모으령의 상태가..?", W/2, H/2-150);
     // (진화하기 버튼은 DOM 으로 표시됨)
 
   }else if(endPhase==='reveal'){
@@ -1040,8 +1046,8 @@ function drawEnding(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffe85c';
     ctx.font="bold "+Math.round(18*fscale())+"px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("모으령은 타부자고로", W/2, H/2-168);
-    ctx.fillText("진화했다!", W/2, H/2-138);
+    ctx.fillText("모으령은", W/2, H/2-168);
+    ctx.fillText("타부자고로 진화했다!", W/2, H/2-168+Math.round(30*fscale()));
 
   }else{
     // rain / done : gold wave + surfing gholdengo
@@ -1070,7 +1076,7 @@ function drawEnding(){
       ctx.fillStyle='#fff';
       ctx.font="bold "+Math.round(15*fscale())+"px 'Galmuri11',monospace";
       ctx.globalAlpha=0.5+0.5*Math.sin(performance.now()/300);
-      ctx.fillText(endClicks>=1 ? "한 번 더 클릭하면 처음으로!" : "타부자고를 클릭해봐!", W/2, 130);
+      ctx.fillText(endClicks>=1 ? "한 번 더 클릭하면 처음으로!" : "타부자고를 클릭해보자!", W/2, 92+Math.round(40*fscale()));
       ctx.globalAlpha=1;
     }
   }
