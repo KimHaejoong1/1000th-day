@@ -123,6 +123,7 @@
     text-align:left;
   }
   .up-icon{ font-size:22px; width:34px; text-align:center; }
+  .up-icon-img{ width:34px; height:34px; object-fit:contain; image-rendering:pixelated; flex:0 0 auto; }
   .up-info{ flex:1; }
   .up-name{ font-size:9px; color:#fff; line-height:1.5; }
   .up-desc{ font-family:'Galmuri11',monospace; font-size:11px; color:#a99fe0; margin-top:4px; }
@@ -177,8 +178,10 @@
   <div id="title" class="overlay show">
     <div class="title-logo">모으령의<br />1000번째 날</div>
     <div class="sub">
-      하늘에서 떨어지는 코인을 모아<br />
-      999개를 채우면… ✨ 무슨 일이?<br /><br />
+      하늘에서 떨어지는 코인을 모으자!<br />
+      ⚠ 장애물에 닿으면 끝! (보호막으로 방어)<br />
+      시간이 지날수록 점점 빨라져요<br /><br />
+      999개를 채우면… ✨ 무슨 일이?<br />
       ← → 또는 화면을 움직여 조종!
     </div>
     <button class="btn" id="startBtn">▶ 게임 시작</button>
@@ -192,7 +195,7 @@
       <div class="shop-coins" id="shopCoins">COINS 0 / 999</div>
       <div id="upgrades"></div>
     </div>
-    <button class="btn" id="nextRoundBtn">다음 라운드 ▶</button>
+    <button class="btn" id="nextRoundBtn">강화 완료! 다시 도전 ▶</button>
   </div>
 
   <!-- LETTER -->
@@ -207,6 +210,12 @@
     </div>
     <button class="btn ghost small" id="replayBtn">다시 보기</button>
   </div>
+
+  <!-- EVOLVE button (shown during ending) -->
+  <button class="btn" id="evolveBtn"
+    style="position:absolute; left:50%; bottom:14%; transform:translateX(-50%); display:none; z-index:7; font-size:13px;">
+    ⚡ 진화하기
+  </button>
 </div>
 
 <script>
@@ -256,6 +265,21 @@ let spritesReady = false;
 })();
 function ready(img){ return img && img.complete && img.naturalWidth>0; }
 
+/* draw a solid-color silhouette of an image (for evolution scene) */
+const _silCv=document.createElement('canvas');
+const _silCtx=_silCv.getContext('2d');
+function drawSilhouette(img,cx,cy,h,color){
+  if(!ready(img)) return;
+  const ratio=img.naturalWidth/img.naturalHeight, w=h*ratio;
+  _silCv.width=Math.max(1,Math.ceil(w)); _silCv.height=Math.max(1,Math.ceil(h));
+  _silCtx.clearRect(0,0,_silCv.width,_silCv.height);
+  _silCtx.globalCompositeOperation='source-over';
+  _silCtx.drawImage(img,0,0,w,h);
+  _silCtx.globalCompositeOperation='source-in';
+  _silCtx.fillStyle=color; _silCtx.fillRect(0,0,_silCv.width,_silCv.height);
+  ctx.drawImage(_silCv, cx-w/2, cy-h/2, w, h);
+}
+
 /* ---------------- Persistent state ---------------- */
 const SAVE_KEY = 'gimmighoul1000_v1';
 let save = loadSave();
@@ -268,12 +292,63 @@ function loadSave(){
 }
 function persist(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){} }
 
+/* ---------------- Audio (Web Audio API — fully synthesized, no files) ---------------- */
+let AC=null, masterGain=null, bgm=null;
+function audioInit(){
+  if(!AC){
+    try{
+      AC = new (window.AudioContext||window.webkitAudioContext)();
+      masterGain = AC.createGain();
+      masterGain.gain.value = 0.5;
+      masterGain.connect(AC.destination);
+    }catch(e){ AC=null; }
+  }
+  if(AC && AC.state==='suspended') AC.resume();
+}
+function beep(freq, start, dur, type, vol){
+  if(!AC) return;
+  const t0=AC.currentTime+start;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'square'; o.frequency.setValueAtTime(freq,t0);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(vol||0.2, t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g).connect(masterGain);
+  o.start(t0); o.stop(t0+dur+0.03);
+}
+function sfxCoin(){ audioInit(); beep(988,0,0.07,'square',0.16); beep(1319,0.05,0.11,'square',0.15); }
+function sfxShield(){ audioInit(); beep(660,0,0.08,'triangle',0.20); beep(990,0.06,0.12,'triangle',0.18); }
+function sfxHit(){ audioInit(); beep(170,0,0.20,'sawtooth',0.25); beep(100,0.09,0.30,'sawtooth',0.22); }
+
+function startBGM(notes, type, vol){
+  audioInit(); stopBGM();
+  if(!AC) return;
+  const len = notes.reduce((s,n)=>s+n[1],0);
+  const handle = { active:true, timer:null };
+  function once(){
+    if(!handle.active) return;
+    let t=0;
+    for(const [f,d] of notes){ if(f>0) beep(f,t,d*0.9,type||'square',vol||0.12); t+=d; }
+    handle.timer=setTimeout(once, len*1000);
+  }
+  bgm=handle; once();
+}
+function stopBGM(){ if(bgm){ bgm.active=false; clearTimeout(bgm.timer); bgm=null; } }
+
+// evolving: tense rising loop ; victory: triumphant fanfare loop
+const BGM_EVOLVE  = [[784,0.13],[880,0.13],[988,0.13],[880,0.13],[784,0.13],[988,0.13],[1047,0.13],[988,0.13]];
+const BGM_VICTORY = [[523,0.16],[659,0.16],[784,0.16],[1047,0.34],[988,0.16],[784,0.16],[1047,0.52],[0,0.18],
+                     [880,0.16],[1047,0.16],[1319,0.52],[0,0.34]];
+
 /* ---------------- Game vars ---------------- */
-let state = 'title';            // title | playing | shop | ending
-let endPhase = '';              // prompt | flash | evolve | rain | done
+let state = 'title';            // title | playing | gameover | shop | ending
+let endPhase = '';              // prompt | preEvolve | evolving | reveal | rain | done
 let endTimer = 0;
 
-let roundTime = 30;
+let elapsed = 0;                // seconds survived in current run
+let runStartTotal = 0;          // coins at run start (for "this run +N")
+let goTimer = 0;                // game-over screen timer
+let evoAcc = 0, evoShow = true; // evolution silhouette toggle
 let objects = [];               // falling coins / obstacles
 let particles = [];             // sparkles & coin rain
 let floaters = [];              // floating score text
@@ -284,20 +359,20 @@ let flashWhite = 0;
 
 const player = { x: W/2, y: H-92, w: 64, h: 64, stun:0, dir:0 };
 
-/* coin value by multiplier level (L0 default .. L3) */
-const COIN_VALUES = [1, 2, 3, 5];
-const MULT_COSTS  = [20, 50, 120];      // cost to reach next level
-const SHIELD_COSTS= [30, 80];           // cost to reach next level
-const SHIELD_MAX  = 2;
+/* coin value by multiplier level (0 = default .. up to 10 upgrades) */
+const COIN_VALUES = [1, 2, 3, 4, 5, 6, 8, 10, 13, 16, 20];   // index = level (0..10)
+const MULT_COSTS  = [10, 22, 38, 58, 82, 110, 145, 190, 245, 310]; // cost level i -> i+1
+const SHIELD_COSTS= [25, 50, 85, 130, 190];   // shield level i -> i+1 (blocks i+1 hits)
+const SHIELD_MAX  = 5;
 
-function coinValue(){ return COIN_VALUES[save.multLevel]; }
+function coinValue(){ return COIN_VALUES[Math.min(save.multLevel, COIN_VALUES.length-1)]; }
 
-/* ---------------- Round difficulty scaling ---------------- */
-function roundCfg(r){
+/* ---------------- Time-based difficulty scaling (per run) ---------------- */
+function diffCfg(t){
   return {
-    spawnEvery: Math.max(0.42, 0.92 - r*0.07),     // seconds between spawns
-    fall:       120 + r*26,                          // px/s
-    obstacleP:  Math.min(0.34, 0.10 + r*0.045)       // chance a spawn is an obstacle
+    spawnEvery: Math.max(0.32, 0.85 - t*0.012),    // spawns get faster over time
+    fall:       130 + t*7,                           // coins/obstacles fall faster
+    obstacleP:  Math.min(0.42, 0.07 + t*0.005)       // more obstacles over time
   };
 }
 
@@ -343,33 +418,39 @@ const elLetter=document.getElementById('letter');
 
 function showOverlay(el){ [elTitle,elShop,elLetter].forEach(o=>o.classList.remove('show')); if(el) el.classList.add('show'); }
 
-document.getElementById('startBtn').onclick = ()=>{ showOverlay(null); startRound(); };
+document.getElementById('startBtn').onclick = ()=>{ audioInit(); showOverlay(null); startRound(); };
 document.getElementById('resetBtn').onclick = ()=>{
   save = { total:0, multLevel:0, shieldLevel:0, round:1 };
   persist();
   alert('저장이 초기화됐어요! 처음부터 시작합니다.');
 };
-document.getElementById('nextRoundBtn').onclick = ()=>{ showOverlay(null); startRound(); };
+document.getElementById('nextRoundBtn').onclick = ()=>{ audioInit(); showOverlay(null); startRound(); };
 document.getElementById('replayBtn').onclick = ()=>{ location.reload(); };
+document.getElementById('evolveBtn').onclick = ()=>{
+  document.getElementById('evolveBtn').style.display='none';
+  audioInit(); startBGM(BGM_EVOLVE,'square',0.11);
+  endPhase='evolving'; endTimer=0; evoAcc=0; evoShow=true;
+};
 
 /* =========================================================================
    FLOW
    ========================================================================= */
 function startRound(){
   state='playing';
-  roundTime=30;
+  elapsed=0;
   objects=[]; particles=[]; floaters=[];
   spawnAcc=0; shake=0; flashWhite=0;
   player.x=W/2; player.stun=0;
-  shieldCharges = save.shieldLevel;     // shield recharges every round
+  shieldCharges = save.shieldLevel;     // shield recharges every run
+  runStartTotal = save.total;
   showOverlay(null);
 }
 
-function endRound(){
-  if(save.total>=999){ startEnding(); return; }
-  save.round++;
-  persist();
-  openShop();
+/* run ends when hit by an obstacle with no shield left */
+function endRun(){
+  if(save.total>=999){ startEnding(); return; }   // safety
+  state='gameover';
+  goTimer=0;
 }
 
 function openShop(){
@@ -386,8 +467,8 @@ function renderShop(){
   // Coin Multiplier
   const mNext = save.multLevel < MULT_COSTS.length ? MULT_COSTS[save.multLevel] : null;
   wrap.appendChild(upRow({
-    icon:'🪙',
-    name:'COIN MULTIPLIER',
+    iconImg: SPRITE_SRC.coin,
+    name:`COIN MULTIPLIER  Lv.${save.multLevel}`,
     desc:'코인 하나의 가치를 올려요',
     lv:`현재: 코인당 +${coinValue()}` + (mNext!==null?` → +${COIN_VALUES[save.multLevel+1]}`:'  (MAX)'),
     cost:mNext,
@@ -400,9 +481,9 @@ function renderShop(){
   const sNext = save.shieldLevel < SHIELD_MAX ? SHIELD_COSTS[save.shieldLevel] : null;
   wrap.appendChild(upRow({
     icon:'🛡️',
-    name:'SHIELD',
-    desc:'장애물 공격을 막아줘요 (매 라운드 충전)',
-    lv:`현재: ${save.shieldLevel}회 방어` + (sNext!==null?` → ${save.shieldLevel+1}회`:'  (MAX)'),
+    name:`SHIELD  Lv.${save.shieldLevel}`,
+    desc:'장애물을 막아줘요 (매 판 자동 충전)',
+    lv:`현재: ${save.shieldLevel}번 방어` + (sNext!==null?` → ${save.shieldLevel+1}번`:'  (MAX)'),
     cost:sNext,
     can: sNext!==null && save.total>=sNext,
     maxed: sNext===null,
@@ -412,8 +493,10 @@ function renderShop(){
 
 function upRow(o){
   const row=document.createElement('div'); row.className='up-row';
-  row.innerHTML=`
-    <div class="up-icon">${o.icon}</div>
+  const iconHtml = o.iconImg
+    ? `<img class="up-icon-img" src="${o.iconImg}" alt="coin">`
+    : `<div class="up-icon">${o.icon}</div>`;
+  row.innerHTML = iconHtml + `
     <div class="up-info">
       <div class="up-name">${o.name}</div>
       <div class="up-desc">${o.desc}</div>
@@ -435,7 +518,7 @@ function upRow(o){
    SPAWNING / GAMEPLAY
    ========================================================================= */
 function spawnObject(){
-  const cfg=roundCfg(save.round);
+  const cfg=diffCfg(elapsed);
   const isObstacle = Math.random() < cfg.obstacleP;
   const size = isObstacle ? 38 : 30;
   objects.push({
@@ -459,6 +542,7 @@ function addCoins(n){
 function gainScore(x,y){
   const v=coinValue();
   addCoins(v);
+  sfxCoin();
   floaters.push({x,y,t:0,txt:`+${v}`,color:'#ffe85c'});
   for(let i=0;i<8;i++) particles.push(sparkle(x,y,'#ffe85c'));
 }
@@ -466,18 +550,18 @@ function gainScore(x,y){
 function hitObstacle(x,y){
   if(shieldCharges>0){
     shieldCharges--;
+    sfxShield();
+    shake=8;
     floaters.push({x,y,t:0,txt:'BLOCK!',color:'#6cf0ff'});
     for(let i=0;i<12;i++) particles.push(sparkle(x,y,'#6cf0ff'));
     return;
   }
-  // penalty
+  // no shield left -> run is over
+  sfxHit();
+  shake=20;
   player.stun=1.0;
-  shake=14;
-  const before=save.total;
-  save.total=Math.max(0, save.total-3);
-  persist();
-  floaters.push({x,y,t:0,txt:'-'+(before-save.total),color:'#ff5a7a'});
-  for(let i=0;i<14;i++) particles.push(sparkle(x,y,'#ff5a7a'));
+  for(let i=0;i<24;i++) particles.push(sparkle(x,y,'#ff5a7a'));
+  endRun();
 }
 
 function sparkle(x,y,color){
@@ -499,9 +583,10 @@ function startEnding(){
 
 function collectFinalCoin(){
   save.total=1000; persist();
-  endPhase='flash';
+  endPhase='preEvolve';
   endTimer=0;
   flashWhite=1;
+  document.getElementById('evolveBtn').style.display='block';
 }
 
 function spawnRainBurst(n){
@@ -545,26 +630,25 @@ function update(dt){
   floaters=floaters.filter(f=>f.t<0.9);
 
   if(state==='playing') updatePlay(dt);
+  else if(state==='gameover'){
+    goTimer+=dt;
+    if(goTimer>1.4){ save.round++; persist(); openShop(); }
+  }
   else if(state==='ending') updateEnding(dt);
 }
 
 function updatePlay(dt){
-  // timer
-  roundTime-=dt;
-  if(roundTime<=0){ roundTime=0; endRound(); return; }
+  elapsed+=dt;
 
   // movement (keyboard)
-  if(player.stun>0){ player.stun-=dt; }
-  else{
-    const sp=380;
-    if(keys.ArrowLeft||keys.a)  player.x-=sp*dt;
-    if(keys.ArrowRight||keys.d) player.x+=sp*dt;
-    player.x=Math.max(player.w/2, Math.min(W-player.w/2, player.x));
-  }
+  const sp=380;
+  if(keys.ArrowLeft||keys.a)  player.x-=sp*dt;
+  if(keys.ArrowRight||keys.d) player.x+=sp*dt;
+  player.x=Math.max(player.w/2, Math.min(W-player.w/2, player.x));
 
-  // spawn
+  // spawn (rate scales with time survived)
   spawnAcc+=dt;
-  const cfg=roundCfg(save.round);
+  const cfg=diffCfg(elapsed);
   if(spawnAcc>=cfg.spawnEvery){ spawnAcc=0; spawnObject(); }
 
   // move objects + collide
@@ -576,7 +660,7 @@ function updatePlay(dt){
     if(hit && !o.dead){
       o.dead=true;
       if(o.type==='coin') gainScore(o.x,o.y);
-      else hitObstacle(o.x,o.y);
+      else { hitObstacle(o.x,o.y); if(state!=='playing') return; }   // run may have ended
     }
   }
   objects=objects.filter(o=> !o.dead && o.y < H+o.size);
@@ -584,12 +668,24 @@ function updatePlay(dt){
 
 function updateEnding(dt){
   endTimer+=dt;
-  if(endPhase==='flash'){
-    if(endTimer>1.2){ endPhase='evolve'; endTimer=0; }
-  }else if(endPhase==='evolve'){
-    // sparkles around center
-    if(Math.random()<0.6) particles.push(sparkle(W/2+(Math.random()-0.5)*120, H/2-20+(Math.random()-0.5)*120,'#ffe85c'));
-    if(endTimer>2.0){
+  if(endPhase==='prompt'){
+    // waiting for click on the 1000th coin
+  }else if(endPhase==='preEvolve'){
+    // waiting for the 진화하기 button (DOM)
+  }else if(endPhase==='evolving'){
+    // silhouette toggles back and forth, speeding up; white light behind
+    const interval = Math.max(0.07, 0.40 - endTimer*0.065);
+    evoAcc+=dt;
+    if(evoAcc>=interval){ evoAcc=0; evoShow=!evoShow; }
+    if(Math.random()<0.4) particles.push(sparkle(W/2+(Math.random()-0.5)*150, H/2+(Math.random()-0.5)*170,'#ffffff'));
+    if(endTimer>4.4){
+      endPhase='reveal'; endTimer=0;
+      flashWhite=1;
+      stopBGM(); startBGM(BGM_VICTORY,'square',0.12);   // 진화 완료 브금
+    }
+  }else if(endPhase==='reveal'){
+    if(Math.random()<0.5) particles.push(sparkle(W/2+(Math.random()-0.5)*130, H/2-20+(Math.random()-0.5)*130,'#ffe85c'));
+    if(endTimer>2.6){
       endPhase='rain'; endTimer=0;
       gold={ x:-160, y:H-150, vx:150 };
       spawnRainBurst(80);
@@ -597,7 +693,7 @@ function updateEnding(dt){
   }else if(endPhase==='rain'){
     if(Math.random()<0.9) spawnRainBurst(2);
     if(gold){ gold.x+=gold.vx*dt; if(gold.x>W/2){ gold.x=W/2; gold.vx*=0.86; } }
-    if(endTimer>3.6 && endPhase!=='done'){
+    if(endTimer>3.6){
       endPhase='done';
       fillLetter();
       showOverlay(elLetter);
@@ -628,13 +724,14 @@ function render(){
   ctx.fillStyle='#0a0a12'; ctx.fillRect(-20,-20,W+40,H+40);
   drawBackground();
 
-  if(state==='playing' || state==='shop') drawScene();
+  if(state==='playing' || state==='shop' || state==='gameover') drawScene();
   if(state==='ending') drawEnding();
 
   drawParticles();
   drawFloaters();
 
-  if(state==='playing') drawHUD();
+  if(state==='playing' || state==='gameover') drawHUD();
+  if(state==='gameover') drawGameOver();
 
   ctx.restore();
 
@@ -678,28 +775,66 @@ function drawHUD(){
   ctx.fillRect(0,38,W,2);
 
   ctx.textBaseline='middle';
+  ctx.font="10px 'Press Start 2P','Galmuri11',monospace";
   // coins
   drawCoin(20,19,18,0);
-  ctx.font="10px 'Press Start 2P', monospace";
   ctx.fillStyle='#ffe85c'; ctx.textAlign='left';
   ctx.fillText(`${save.total}/999`, 36, 20);
-  // round
+  // run number
   ctx.textAlign='center';
   ctx.fillStyle='#fff';
-  ctx.fillText(`R${save.round}`, W/2, 20);
-  // time
+  ctx.fillText(`판 ${save.round}`, W/2, 20);
+  // shield charges
   ctx.textAlign='right';
-  ctx.fillStyle= roundTime<6 ? '#ff5a7a' : '#9be870';
-  ctx.fillText(`${Math.ceil(roundTime)}s`, W-12, 20);
+  if(shieldCharges>0){
+    ctx.fillStyle='#6cf0ff';
+    ctx.fillText(`방어 x${shieldCharges}`, W-12, 20);
+  }else{
+    ctx.fillStyle='#ff7a90';
+    ctx.fillText(`무방비!`, W-12, 20);
+  }
+}
+
+function drawGameOver(){
+  ctx.fillStyle='rgba(10,6,18,0.66)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#ff5a7a';
+  ctx.font="22px 'Press Start 2P','Galmuri11',monospace";
+  ctx.fillText("아야! 💥", W/2, H/2-30);
+  const got=Math.max(0, save.total-runStartTotal);
+  ctx.fillStyle='#ffe85c';
+  ctx.font="13px 'Galmuri11',monospace";
+  ctx.fillText(`이번 판 +${got} 코인 획득!`, W/2, H/2+18);
+  ctx.fillStyle='#cfc7ff';
+  ctx.font="11px 'Galmuri11',monospace";
+  ctx.fillText("강화하고 다시 도전하자", W/2, H/2+44);
 }
 
 function drawEnding(){
+  // ---- evolving: white light backdrop + silhouette toggle ----
+  if(endPhase==='evolving'){
+    const a=0.55+0.35*Math.sin(endTimer*7);
+    const g=ctx.createRadialGradient(W/2,H/2,8, W/2,H/2,380);
+    g.addColorStop(0,`rgba(255,255,255,${Math.min(1,a)})`);
+    g.addColorStop(0.45,'rgba(255,244,190,0.55)');
+    g.addColorStop(1,'rgba(8,6,18,0.96)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    const img = evoShow ? SPR.gimmighoul : SPR.gholdengo;
+    drawSilhouette(img, W/2, H/2, evoShow?150:168, '#241a40');
+
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#8a5b00';
+    ctx.font="13px 'Press Start 2P','Galmuri11',monospace";
+    ctx.fillText("오잉? 모으령의 상태가..?", W/2, 92);
+    return;
+  }
+
   ctx.fillStyle='rgba(8,6,18,0.82)'; ctx.fillRect(0,0,W,H);
 
   if(endPhase==='prompt'){
     const pulse=1+0.06*Math.sin(performance.now()/220);
     drawGiantCoin(W/2, H/2, 80*pulse);
-    // glow ring
     ctx.save();
     ctx.strokeStyle=`rgba(255,232,92,${0.3+0.3*Math.sin(performance.now()/300)})`;
     ctx.lineWidth=4;
@@ -709,33 +844,32 @@ function drawEnding(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffd23f';
     ctx.font="12px 'Press Start 2P','Galmuri11',monospace";
-    wrapText("우리의 1000번째 날,", W/2, H/2-180, 360, 26);
-    wrapText("마지막 코인을 채워줘!", W/2, H/2-150, 360, 26);
+    ctx.fillText("우리의 1000번째 날,", W/2, H/2-180);
+    ctx.fillText("마지막 코인을 채워줘!", W/2, H/2-150);
     ctx.fillStyle='#fff';
     ctx.font="10px 'Galmuri11',monospace";
-    const b=0.5+0.5*Math.sin(performance.now()/300);
-    ctx.globalAlpha=0.4+0.6*b;
+    ctx.globalAlpha=0.4+0.6*(0.5+0.5*Math.sin(performance.now()/300));
     ctx.fillText("👆 코인을 클릭!", W/2, H/2+150);
     ctx.globalAlpha=1;
 
-  }else if(endPhase==='flash'){
-    drawGiantCoin(W/2,H/2,80);
-  }else if(endPhase==='evolve'){
-    const t=Math.min(1,endTimer/2.0);
-    // shrink chest -> grow gholdengo crossfade
-    const scale = 70 + t*40;
-    ctx.save();
-    ctx.globalAlpha=1-t;
-    drawGimmighoul(W/2,H/2, 70 + Math.sin(endTimer*30)*4);
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha=t;
-    drawGholdengo(W/2,H/2, scale);
-    ctx.restore();
-    ctx.textAlign='center';
+  }else if(endPhase==='preEvolve'){
+    const bob=Math.sin(performance.now()/300)*6;
+    drawGimmighoul(W/2, H/2+bob, 150);
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#ffd23f';
+    ctx.font="13px 'Press Start 2P','Galmuri11',monospace";
+    ctx.fillText("오잉? 모으령의 상태가..?", W/2, H/2-150);
+    // (진화하기 버튼은 DOM 으로 표시됨)
+
+  }else if(endPhase==='reveal'){
+    const bob=Math.sin(performance.now()/240)*5;
+    drawGholdengo(W/2, H/2+bob, 150);
+    ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#ffe85c';
-    ctx.font="14px 'Press Start 2P','Galmuri11',monospace";
-    ctx.fillText("진화!", W/2, H/2-150);
+    ctx.font="13px 'Press Start 2P','Galmuri11',monospace";
+    ctx.fillText("모으령은 타부자고로", W/2, H/2-168);
+    ctx.fillText("진화했다!", W/2, H/2-138);
+
   }else{
     // rain / done : gold wave + surfing gholdengo
     drawGoldWave();
