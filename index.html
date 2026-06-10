@@ -72,7 +72,13 @@
 
   .sub{
     font-family:'Galmuri11',monospace;
-    font-size:15px; color:#cfc7ff; line-height:1.9;
+    font-size:18px; color:#cfc7ff; line-height:1.95;
+  }
+  .mw-row{ display:inline-flex; gap:12px; justify-content:center; margin:8px 0 4px; }
+  .mw-ico{
+    width:52px; height:52px; object-fit:contain;
+    image-rendering:pixelated;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));
   }
   .blink{ animation:blink 1s steps(2,start) infinite; }
   @keyframes blink{ 50%{opacity:0} }
@@ -176,14 +182,19 @@
 
   <!-- TITLE -->
   <div id="title" class="overlay show">
-    <div class="title-logo">모으령의<br />1000번째 날</div>
+    <div class="title-logo">모으령의<br />코인 모으기</div>
     <div class="sub">
       하늘에서 떨어지는 코인을 모으자!<br />
-      🐱 나옹이에 닿으면 코인을 뺏기고<br />
-      도망가서 그 판은 중단돼! (보호막으로 방어)<br />
+      <span class="mw-row">
+        <img id="mw1" class="mw-ico" alt="나옹" />
+        <img id="mw2" class="mw-ico" alt="나옹" />
+        <img id="mw3" class="mw-ico" alt="나옹" />
+      </span><br />
+      이 나옹들에게 닿으면 코인을 잃기 전에<br />
+      모으령이 도망가 버려! (보호막으로 방어)<br />
       시간이 갈수록 점점 빨라지니 조심!<br /><br />
       999개를 채우면… ✨ 무슨 일이?<br />
-      ← → 또는 화면을 움직여 조종!
+      ← → 또는 화면을 드래그해 조종!
     </div>
     <button class="btn" id="startBtn">▶ 게임 시작</button>
     <button class="btn ghost small" id="resetBtn">처음부터 (저장 초기화)</button>
@@ -446,6 +457,12 @@ cv.addEventListener('touchstart', e=>{ const t=e.touches[0]; const p=canvasPos(t
 const elTitle=document.getElementById('title');
 const elShop=document.getElementById('shop');
 const elLetter=document.getElementById('letter');
+
+// 타이틀 설명의 나옹 아이콘에 실제 스프라이트 이미지 적용
+['meowth1','meowth2','meowth3'].forEach((k,i)=>{
+  const el=document.getElementById('mw'+(i+1));
+  if(el) el.src = SPRITE_SRC[k];
+});
 
 function showOverlay(el){ [elTitle,elShop,elLetter].forEach(o=>o.classList.remove('show')); if(el) el.classList.add('show'); }
 
