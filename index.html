@@ -353,7 +353,7 @@ function loadBuffers(){
     try{
       // decode straight from embedded bytes (no fetch — works under file://)
       AC.decodeAudioData(b64ToArrayBuffer(AUDIO_SRC[k]),
-        buf=>{ AUD[k]=buf; },
+        buf=>{ AUD[k]=buf; if(k==='opening' && wantOpening) startOpening(); },
         err=>{ /* leave null -> synth fallback */ });
     }catch(e){ /* ignore */ }
   });
@@ -493,14 +493,16 @@ const elLetter=document.getElementById('letter');
 function showOverlay(el){ [elTitle,elShop,elLetter].forEach(o=>o.classList.remove('show')); if(el) el.classList.add('show'); }
 
 // opening BGM: 타이틀(시작) 화면에서만 재생. 자동재생이 막혀 첫 상호작용 때 시작.
-let openingStarted=false;
+let openingStarted=false, wantOpening=false;
 function startOpening(){
   if(state!=='title') return;                      // 타이틀에서만
   const hint=document.getElementById('tapHint');
   if(hint) hint.style.display='none';              // 상호작용했으면 "탭하여 브금" 안내 숨김
   if(openingStarted) return;
+  wantOpening=true;                                 // 디코딩이 끝나면 자동 재생되도록
   audioInit();
   if(AUD.opening){ openingStarted=true; stopBGM(); bgmSrc=playBuf(AUD.opening, true, 0.4); }
+  // AUD.opening이 아직 준비 안 됐으면 loadBuffers 디코딩 완료 콜백에서 재생됨
 }
 window.addEventListener('pointerdown', startOpening);
 window.addEventListener('keydown', startOpening);
